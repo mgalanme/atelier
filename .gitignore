@@ -5,3 +5,7 @@ __pycache__/
 .solace/
 *.log
 .DS_Store
+*.egg-info/
+*.egg-info
+__pycache__/
+.pytest_cache/
