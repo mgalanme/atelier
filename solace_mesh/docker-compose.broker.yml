@@ -1,0 +1,22 @@
+# Self-hosted, free, open source Solace PubSub+ Standard broker.
+#
+# If Docker Hub rate limiting is hit when pulling solace/solace-pubsub-standard,
+# the same image is mirrored at mirror.gcr.io/solace/solace-pubsub-standard
+# and can be substituted directly in the `image:` line below.
+services:
+  solace-broker:
+    image: solace/solace-pubsub-standard:latest
+    shm_size: 1g
+    ports:
+      - "8080:8080"   # SEMP management (HTTP)
+      - "55555:55555" # SMF (native messaging)
+      - "8008:8008"   # WebSocket messaging
+      - "1883:1883"   # MQTT
+    environment:
+      - username_admin_globalaccesslevel=admin
+      - username_admin_password=${SOLACE_PASSWORD}
+    volumes:
+      - solace-data:/var/lib/solace
+
+volumes:
+  solace-data:

@@ -1,0 +1,15 @@
+agent_name: sustainability_agent
+display_name: "Sustainability Agent"
+description: >
+  Assesses circularity and regulatory fit for a proposed concept and
+  material list, by calling the Mosaic AI Agent Framework endpoint
+  atelier-sustainability-agent.
+tools:
+  - tool_type: rest
+    name: invoke_sustainability_agent
+    method: POST
+    url: "${MOSAIC_SUSTAINABILITY_AGENT_ENDPOINT}/invocations"
+    headers:
+      Authorization: "Bearer ${DATABRICKS_TOKEN}"
+    request_template: |
+      {"dataframe_split": {"columns": ["concept", "materials", "target_markets"], "data": [["{{concept}}", "{{materials}}", "{{target_markets}}"]]}}

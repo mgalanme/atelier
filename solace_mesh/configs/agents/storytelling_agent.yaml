@@ -1,0 +1,14 @@
+agent_name: storytelling_agent
+display_name: "Storytelling Agent"
+description: >
+  Drafts collection narrative and positioning content, by calling the
+  Mosaic AI Agent Framework endpoint atelier-storytelling-agent.
+tools:
+  - tool_type: rest
+    name: invoke_storytelling_agent
+    method: POST
+    url: "${MOSAIC_STORYTELLING_AGENT_ENDPOINT}/invocations"
+    headers:
+      Authorization: "Bearer ${DATABRICKS_TOKEN}"
+    request_template: |
+      {"dataframe_split": {"columns": ["concept", "target_audience"], "data": [["{{concept}}", "{{target_audience}}"]]}}

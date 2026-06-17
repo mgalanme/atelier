@@ -1,0 +1,15 @@
+agent_name: buyer_agent
+display_name: "Buyer Agent"
+description: >
+  Comments on commercial feasibility, suggested volumes and supply risk for
+  a proposed concept, by calling the Mosaic AI Agent Framework endpoint
+  atelier-buyer-agent.
+tools:
+  - tool_type: rest
+    name: invoke_buyer_agent
+    method: POST
+    url: "${MOSAIC_BUYER_AGENT_ENDPOINT}/invocations"
+    headers:
+      Authorization: "Bearer ${DATABRICKS_TOKEN}"
+    request_template: |
+      {"dataframe_split": {"columns": ["concept", "forecast_summary", "inventory_summary"], "data": [["{{concept}}", "{{forecast_summary}}", "{{inventory_summary}}"]]}}

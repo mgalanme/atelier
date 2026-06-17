@@ -1,0 +1,17 @@
+# SAM agent definition wrapping the atelier-trend-agent Mosaic AI Model
+# Serving endpoint as a tool the mesh Orchestrator can delegate to.
+agent_name: trend_agent
+display_name: "Trend Synthesis Agent"
+description: >
+  Proposes collection concept directions and material recommendations from
+  a creative brief, by calling the Mosaic AI Agent Framework endpoint
+  atelier-trend-agent.
+tools:
+  - tool_type: rest
+    name: invoke_trend_agent
+    method: POST
+    url: "${MOSAIC_TREND_AGENT_ENDPOINT}/invocations"
+    headers:
+      Authorization: "Bearer ${DATABRICKS_TOKEN}"
+    request_template: |
+      {"dataframe_split": {"columns": ["brief"], "data": [["{{input}}"]]}}
