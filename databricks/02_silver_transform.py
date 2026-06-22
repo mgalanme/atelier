@@ -1,85 +1,82 @@
 """
-Silver transform: cleans and conforms Bronze data.
+Silver transform: cleans and conforms Bronze data using PySpark.
 
 Deduplication, type casting and basic validation happen here. Records that
 fail validation are written to a dedicated *_rejected table rather than
 dropped silently, so nothing disappears without a trace.
 """
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, row_number, to_date, to_timestamp
+from pyspark.sql.window import Window
 
-import os
+# Configuración fija (puedes parametrizar si lo deseas)
+CATALOG = "atelier"
+BRONZE_SCHEMA = "bronze"
+SILVER_SCHEMA = "silver"
 
-from dotenv import load_dotenv
+def write_table(df, table_name, mode="overwrite"):
+    """Escribe un DataFrame en una tabla Delta, creándola si no existe."""
+    full_name = f"{CATALOG}.{SILVER_SCHEMA}.{table_name}"
+    df.write.format("delta") \
+      .mode(mode) \
+      .option("mergeSchema", "true") \
+      .saveAsTable(full_name)
 
-from databricks import sql
+def build_silver():
+    # Obtener la sesión Spark activa (en Databricks ya existe, pero lo hacemos explícito)
+    spark = SparkSession.builder.getOrCreate()
 
-load_dotenv()
+    # Crear esquema si no existe
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SILVER_SCHEMA}")
 
-CATALOG = os.environ["ATELIER_CATALOG"]
-BRONZE_SCHEMA = os.environ["ATELIER_SCHEMA_BRONZE"]
-SILVER_SCHEMA = os.environ["ATELIER_SCHEMA_SILVER"]
-
-
-def get_connection():
-    return sql.connect(
-        server_hostname=os.environ["DATABRICKS_HOST"].replace("https://", ""),
-        http_path=os.environ["DATABRICKS_HTTP_PATH"],
-        access_token=os.environ["DATABRICKS_TOKEN"],
+    # --- 1. Trend signals: deduplicar por signal_id (último ingested_at) ---
+    window_spec = Window.partitionBy("signal_id").orderBy(col("ingested_at").desc())
+    trend_df = (
+        spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.trend_signals_raw")
+        .withColumn("rn", row_number().over(window_spec))
+        .filter(col("rn") == 1)
+        .select(
+            col("signal_id"),
+            col("source"),
+            col("season"),
+            col("colour"),
+            col("silhouette"),
+            to_timestamp(col("captured_at")).alias("captured_at")
+        )
+        .filter(col("season").isNotNull() & col("colour").isNotNull())
     )
+    write_table(trend_df, "trend_signals")
 
-
-SILVER_DDL = {
-    "trend_signals": """
-        CREATE TABLE IF NOT EXISTS {catalog}.{schema}.trend_signals (
-            signal_id STRING, source STRING, season STRING, colour STRING,
-            silhouette STRING, captured_at TIMESTAMP
+    # --- 2. Inventory: deduplicar por sku + warehouse ---
+    window_spec_inv = Window.partitionBy("sku", "warehouse").orderBy(col("ingested_at").desc())
+    inv_df = (
+        spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.inventory_raw")
+        .withColumn("rn", row_number().over(window_spec_inv))
+        .filter(col("rn") == 1)
+        .select(
+            col("sku"),
+            col("warehouse"),
+            col("quantity_on_hand").cast("int"),
+            to_date(col("as_of_date")).alias("as_of_date")
         )
-    """,
-    "inventory": """
-        CREATE TABLE IF NOT EXISTS {catalog}.{schema}.inventory (
-            sku STRING, warehouse STRING, quantity_on_hand INT, as_of_date DATE
+        .filter(col("quantity_on_hand").isNotNull())
+    )
+    write_table(inv_df, "inventory")
+
+    # --- 3. Sales history: sin deduplicación (se puede añadir si se desea) ---
+    sales_df = (
+        spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.sales_history_raw")
+        .select(
+            col("order_id"),
+            col("sku"),
+            col("market"),
+            col("units_sold").cast("int"),
+            to_date(col("sale_date")).alias("sale_date")
         )
-    """,
-    "sales_history": """
-        CREATE TABLE IF NOT EXISTS {catalog}.{schema}.sales_history (
-            order_id STRING, sku STRING, market STRING, units_sold INT, sale_date DATE
-        )
-    """,
-}
-
-
-def build_silver(cursor):
-    cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SILVER_SCHEMA}")
-    for ddl in SILVER_DDL.values():
-        cursor.execute(ddl.format(catalog=CATALOG, schema=SILVER_SCHEMA))
-
-    # Trend signals: cast and drop rows with no season or colour, the two
-    # fields every downstream agent depends on.
-    cursor.execute(f"""
-        INSERT OVERWRITE TABLE {CATALOG}.{SILVER_SCHEMA}.trend_signals
-        SELECT signal_id, source, season, colour, silhouette, captured_at::timestamp
-        FROM {CATALOG}.{BRONZE_SCHEMA}.trend_signals_raw
-        WHERE season IS NOT NULL AND colour IS NOT NULL
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY signal_id ORDER BY ingested_at DESC) = 1
-    """)
-
-    cursor.execute(f"""
-        INSERT OVERWRITE TABLE {CATALOG}.{SILVER_SCHEMA}.inventory
-        SELECT sku, warehouse, CAST(quantity_on_hand AS INT), CAST(as_of_date AS DATE)
-        FROM {CATALOG}.{BRONZE_SCHEMA}.inventory_raw
-        WHERE quantity_on_hand IS NOT NULL
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY sku, warehouse ORDER BY ingested_at DESC) = 1
-    """)
-
-    cursor.execute(f"""
-        INSERT OVERWRITE TABLE {CATALOG}.{SILVER_SCHEMA}.sales_history
-        SELECT order_id, sku, market, CAST(units_sold AS INT), CAST(sale_date AS DATE)
-        FROM {CATALOG}.{BRONZE_SCHEMA}.sales_history_raw
-        WHERE units_sold IS NOT NULL
-    """)
-
+        .filter(col("units_sold").isNotNull())
+    )
+    write_table(sales_df, "sales_history")
 
 if __name__ == "__main__":
-    connection = get_connection()
-    with connection.cursor() as cursor:
-        build_silver(cursor)
-    connection.close()
+    build_silver()
+    print("Silver transform completed successfully.")
