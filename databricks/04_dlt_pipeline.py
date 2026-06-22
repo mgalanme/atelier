@@ -14,14 +14,14 @@ from pyspark.sql.functions import current_timestamp
 
 @dlt.table(name="trend_signals_bronze", comment="Raw trend signals, append only")
 def trend_signals_bronze():
-    return spark.readStream.format("cloudFiles").option("cloudFiles.format", "json").load(
+    return spark.readStream.format("cloudFiles").option("cloudFiles.format", "json").load(  # noqa: F821
         "/Volumes/atelier/landing/trend_signals/"
     )
 
 
 @dlt.table(name="social_listening_bronze", comment="Streaming social listening signals")
 def social_listening_bronze():
-    return spark.readStream.format("cloudFiles").option("cloudFiles.format", "json").load(
+    return spark.readStream.format("cloudFiles").option("cloudFiles.format", "json").load(  # noqa: F821
         "/Volumes/atelier/landing/social_listening/"
     )
 
