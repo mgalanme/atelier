@@ -17,17 +17,12 @@ CATALOG = "atelier"
 BRONZE_SCHEMA = "bronze"
 
 # --- Funciones auxiliares ---
-def create_table_if_not_exists(table_name, spark_session):
-    """Crea la tabla si no existe, usando Delta format."""
-    full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table_name}"
-    spark_session.sql(f"CREATE TABLE IF NOT EXISTS {full_name} USING DELTA")
-
 def write_batch(df, table_name, run_id, spark_session):
     """Escribe el DataFrame en la tabla Bronze, añadiendo metadatos de ingesta."""
     full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table_name}"
     df_with_meta = df.withColumn("ingestion_run_id", lit(run_id)) \
                      .withColumn("ingested_at", current_timestamp())
-    df_with_meta.write.format("delta").mode("append").saveAsTable(full_name)
+    df_with_meta.write.format("delta").mode("append").option("mergeSchema", "true").saveAsTable(full_name)
 
 # --- 1. Generar datos sintéticos de tendencias ---
 def generate_trend_signals(spark_session, n=100):
@@ -146,7 +141,6 @@ if __name__ == "__main__":
     for table_name, generator_func in tables:
         print(f"Ingesting {table_name}...")
         df = generator_func(spark_session)
-        create_table_if_not_exists(table_name, spark_session)
         write_batch(df, table_name, run_id, spark_session)
 
     print("Ingestión completada.")
