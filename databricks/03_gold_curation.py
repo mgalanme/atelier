@@ -7,60 +7,58 @@ fails once a prior session has contaminated the DataFrame schema with extra
 or reordered columns. Every MERGE below uses an explicit column list on both
 the INSERT and UPDATE clauses, never INSERT * or UPDATE SET *.
 """
+from pyspark.sql import SparkSession
 
-import os
+# Configuración fija (puedes parametrizar si lo deseas)
+CATALOG = "atelier"
+SILVER_SCHEMA = "silver"
+GOLD_SCHEMA = "gold"
 
-from dotenv import load_dotenv
-
-from databricks import sql
-
-load_dotenv()
-
-CATALOG = os.environ["ATELIER_CATALOG"]
-SILVER_SCHEMA = os.environ["ATELIER_SCHEMA_SILVER"]
-GOLD_SCHEMA = os.environ["ATELIER_SCHEMA_GOLD"]
-
-# Explicit column list, kept as a constant so every MERGE statement that
-# touches this table uses exactly the same columns in exactly the same order.
+# Explicit column list for trends, kept as a constant so every MERGE statement
+# that touches this table uses exactly the same columns in the same order.
 TREND_COLS = ["trend_id", "season", "colour", "silhouette", "signal_count", "last_seen_at"]
 
+def get_spark():
+    """Obtiene la sesión Spark activa (en Databricks ya existe)."""
+    return SparkSession.builder.getOrCreate()
 
-def get_connection():
-    return sql.connect(
-        server_hostname=os.environ["DATABRICKS_HOST"].replace("https://", ""),
-        http_path=os.environ["DATABRICKS_HTTP_PATH"],
-        access_token=os.environ["DATABRICKS_TOKEN"],
-    )
+def build_gold():
+    spark = get_spark()
 
+    # Crear esquema si no existe
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}")
 
-def build_gold(cursor):
-    cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}")
-
-    cursor.execute(f"""
+    # --- 1. Crear tablas (si no existen) ---
+    spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.trends (
             trend_id STRING, season STRING, colour STRING, silhouette STRING,
             signal_count INT, last_seen_at TIMESTAMP
         )
     """)
 
-    cursor.execute(f"""
+    spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.decisions (
             decision_id STRING, collection_id STRING, persona STRING,
             decision_type STRING, comment STRING, decided_at TIMESTAMP
         )
     """)
 
-    cursor.execute(f"""
+    spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.trend_documents (
             document_id STRING, document_text STRING, season STRING, refreshed_at TIMESTAMP
         )
     """)
 
+    # --- 2. Poblar/actualizar trends usando MERGE ---
     insert_cols = ", ".join(TREND_COLS)
-    update_assignments = ", ".join(f"target.{c} = source.{c}" for c in TREND_COLS if c != "trend_id")
+    update_assignments = ", ".join(
+        f"target.{c} = source.{c}"
+        for c in TREND_COLS
+        if c != "trend_id"
+    )
     source_cols = ", ".join(f"source.{c}" for c in TREND_COLS)
 
-    cursor.execute(f"""
+    merge_sql = f"""
         MERGE INTO {CATALOG}.{GOLD_SCHEMA}.trends AS target
         USING (
             SELECT
@@ -74,11 +72,11 @@ def build_gold(cursor):
         ON target.trend_id = source.trend_id
         WHEN MATCHED THEN UPDATE SET {update_assignments}
         WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({source_cols})
-    """)
+    """
+    spark.sql(merge_sql)
 
-    # One natural-language document per trend, used as the source for the
-    # Vector Search index created in 05_vector_search_setup.py.
-    cursor.execute(f"""
+    # --- 3. Generar documentos de texto para Vector Search ---
+    spark.sql(f"""
         INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.trend_documents
         SELECT
             trend_id AS document_id,
@@ -90,9 +88,8 @@ def build_gold(cursor):
         FROM {CATALOG}.{GOLD_SCHEMA}.trends
     """)
 
-
-def record_decision(cursor, decision_id: str, collection_id: str, persona: str,
-                     decision_type: str, comment: str):
+def record_decision(decision_id: str, collection_id: str, persona: str,
+                    decision_type: str, comment: str):
     """
     Sanitises free-text fields before they reach a SQL statement, since
     `comment` may originate from an LLM-generated narrative rather than a
@@ -100,6 +97,7 @@ def record_decision(cursor, decision_id: str, collection_id: str, persona: str,
     returns are flattened to spaces, null bytes are stripped, and the value
     is truncated to a safe length.
     """
+    spark = get_spark()
     safe_comment = (
         comment.replace("\x00", "")
         .replace("\r", " ")
@@ -107,16 +105,13 @@ def record_decision(cursor, decision_id: str, collection_id: str, persona: str,
         .replace("'", "''")
     )[:2000]
 
-    cursor.execute(f"""
+    spark.sql(f"""
         INSERT INTO {CATALOG}.{GOLD_SCHEMA}.decisions
         (decision_id, collection_id, persona, decision_type, comment, decided_at)
         VALUES ('{decision_id}', '{collection_id}', '{persona}', '{decision_type}',
                 '{safe_comment}', current_timestamp())
     """)
 
-
 if __name__ == "__main__":
-    connection = get_connection()
-    with connection.cursor() as cursor:
-        build_gold(cursor)
-    connection.close()
+    build_gold()
+    print("Gold curation completed successfully.")
