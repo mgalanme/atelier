@@ -8,8 +8,9 @@ dropped silently, so nothing disappears without a trace.
 
 import os
 
-from databricks import sql
 from dotenv import load_dotenv
+
+from databricks import sql
 
 load_dotenv()
 

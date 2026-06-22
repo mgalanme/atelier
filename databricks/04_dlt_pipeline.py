@@ -9,7 +9,7 @@ workspace, not run directly with python.
 """
 
 import dlt
-from pyspark.sql.functions import col, current_timestamp
+from pyspark.sql.functions import current_timestamp
 
 
 @dlt.table(name="trend_signals_bronze", comment="Raw trend signals, append only")

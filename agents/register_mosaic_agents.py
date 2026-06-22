@@ -12,11 +12,11 @@ session.
 
 import uuid
 
-import mlflow
-import trend_agent
-import sustainability_agent
-import storytelling_agent
 import buyer_agent
+import mlflow
+import storytelling_agent
+import sustainability_agent
+import trend_agent
 from databricks.sdk import WorkspaceClient
 
 mlflow.set_tracking_uri("databricks")

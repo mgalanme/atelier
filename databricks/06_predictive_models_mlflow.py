@@ -10,7 +10,6 @@ is generated for every run name to work around this rather than relying on
 MLflow's own auto-incrementing run naming.
 """
 
-import os
 import uuid
 
 import mlflow

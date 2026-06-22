@@ -10,8 +10,9 @@ the INSERT and UPDATE clauses, never INSERT * or UPDATE SET *.
 
 import os
 
-from databricks import sql
 from dotenv import load_dotenv
+
+from databricks import sql
 
 load_dotenv()
 
