@@ -24,6 +24,7 @@ dependencies = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+builtins = ["spark", "dbutils", "display"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

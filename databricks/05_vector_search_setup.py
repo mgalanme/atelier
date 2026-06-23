@@ -32,13 +32,25 @@ def main():
     else:
         print(f"Endpoint {ENDPOINT_NAME} ya existe.")
 
-    # Crear el índice solo si no existe; si ya existe, sincronizarlo en
-    # lugar de intentar crearlo de nuevo. create_delta_sync_index no es
-    # idempotente: falla si el índice ya existe.
+    # Change Data Feed es un requisito de Vector Search sobre la tabla
+    # fuente. Activarlo es idempotente (solo cambia una propiedad de
+    # tabla, no toca los datos), así que es seguro repetirlo cada vez.
+    spark.sql(f"ALTER TABLE {SOURCE_TABLE} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)")
+    print(f"Change Data Feed activado en {SOURCE_TABLE}.")
+
+    # Crear el índice solo si no existe; si ya existe, sincronizarlo solo
+    # cuando está listo. create_delta_sync_index no es idempotente: falla
+    # si el índice ya existe.
     if client.index_exists(index_name=INDEX_NAME):
         index = client.get_index(endpoint_name=ENDPOINT_NAME, index_name=INDEX_NAME)
-        index.sync()
-        print(f"Índice {INDEX_NAME} ya existía; sincronización lanzada.")
+        status = index.describe().get("status", {})
+        if status.get("ready", False):
+            index.sync()
+            print(f"Índice {INDEX_NAME} ya existía; sincronización lanzada.")
+        else:
+            print(f"Índice {INDEX_NAME} existe pero aún no está listo.")
+            print(f"Estado: {status.get('message', 'Aprovisionamiento en curso')}")
+            print("Espera a que termine de aprovisionarse antes de sincronizar.")
     else:
         client.create_delta_sync_index(
             endpoint_name=ENDPOINT_NAME,
