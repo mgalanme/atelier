@@ -6,19 +6,22 @@ approved concept, aligned with the stated target audience and brand voice.
 import os
 
 import mlflow
-from langchain_community.chat_models import ChatDatabricks
+from databricks_langchain import ChatDatabricks
 from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
+# Use environment variable with fallback
+LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3-70b-instruct")
 
-class StorytellingState(TypedDict):
+
+class StorytellingState(TypedDict, total=True):
     concept: str
     target_audience: str
     narrative: str
 
 
 def draft_narrative(state: StorytellingState) -> StorytellingState:
-    llm = ChatDatabricks(endpoint=os.environ["MOSAIC_LLM_ENDPOINT"])
+    llm = ChatDatabricks(endpoint=LLM_ENDPOINT)
     prompt = (
         f"Concept: {state['concept']}\n"
         f"Target audience: {state['target_audience']}\n"
@@ -53,4 +56,6 @@ class StorytellingAgentModel(mlflow.pyfunc.PythonModel):
         return result["narrative"]
 
 
+# Expose the model for MLflow Models-as-Code
 model = StorytellingAgentModel()
+mlflow.models.set_model(model)
