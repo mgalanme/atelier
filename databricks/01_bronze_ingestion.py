@@ -7,10 +7,11 @@ atelier.bronze schema.
 """
 
 import random
+import uuid as py_uuid
 from datetime import datetime, timedelta
 
 from pyspark.sql import Row
-from pyspark.sql.functions import current_timestamp, lit, uuid
+from pyspark.sql.functions import current_timestamp, lit
 
 # --- Configuración ---
 CATALOG = "atelier"
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         )
 
     # Generar un UUID para esta ejecución
-    run_id = str(uuid().alias("dummy")).split("'")[1]  # Truco para obtener UUID
+    run_id = str(py_uuid.uuid4())
 
     # Diccionario con el nombre de la tabla y la función generadora
     tables = [
