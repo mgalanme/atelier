@@ -2,10 +2,11 @@
 Gold curation: builds the business-ready entities (Collection, Garment,
 Material, Trend, Decision) that every agent and predictive model reads from.
 
-LESSON LEARNED (reused from earlier case studies): MERGE INTO with INSERT *
-fails once a prior session has contaminated the DataFrame schema with extra
-or reordered columns. Every MERGE below uses an explicit column list on both
-the INSERT and UPDATE clauses, never INSERT * or UPDATE SET *.
+NOTE: Bronze and Silver now overwrite on every run (a full synthetic
+snapshot, not an accumulating history), so trends here uses a plain
+INSERT OVERWRITE rather than a MERGE. decisions remains a pure INSERT: it
+is an audit log of real Human-in-the-Loop events, not a refreshable
+snapshot, and must persist across runs.
 """
 
 from pyspark.sql import SparkSession
@@ -14,10 +15,6 @@ from pyspark.sql import SparkSession
 CATALOG = "atelier"
 SILVER_SCHEMA = "silver"
 GOLD_SCHEMA = "gold"
-
-# Explicit column list for trends, kept as a constant so every MERGE statement
-# that touches this table uses exactly the same columns in the same order.
-TREND_COLS = ["trend_id", "season", "colour", "silhouette", "signal_count", "last_seen_at"]
 
 
 def get_spark():
@@ -28,10 +25,8 @@ def get_spark():
 def build_gold():
     spark = get_spark()
 
-    # Crear esquema si no existe
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}")
 
-    # --- 1. Crear tablas (si no existen) ---
     spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.trends (
             trend_id STRING, season STRING, colour STRING, silhouette STRING,
@@ -52,12 +47,7 @@ def build_gold():
         )
     """)
 
-    # --- 2. Recalcular trends como snapshot completo ---
-    # Bronze y Silver ahora se sobrescriben en cada ejecución (overwrite,
-    # no append), así que Gold sigue la misma semántica de snapshot: un
-    # INSERT OVERWRITE, no un MERGE acumulativo. decisions es la excepción
-    # deliberada (ver record_decision más abajo): es un registro de
-    # auditoría de eventos HITL reales, no un dato sintético recalculable.
+    # --- Recalcular trends como snapshot completo (no MERGE) ---
     spark.sql(f"""
         INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.trends
         SELECT
@@ -69,7 +59,7 @@ def build_gold():
         GROUP BY season, colour, silhouette
     """)
 
-    # --- 3. Generar documentos de texto para Vector Search ---
+    # --- Generar documentos de texto para Vector Search ---
     spark.sql(f"""
         INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.trend_documents
         SELECT
