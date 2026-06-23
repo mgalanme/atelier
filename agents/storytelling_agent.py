@@ -43,11 +43,13 @@ class StorytellingAgentModel(mlflow.pyfunc.PythonModel):
 
     def predict(self, context, model_input):
         row = model_input.iloc[0]
-        result = self.graph.invoke({
-            "concept": row["concept"],
-            "target_audience": row["target_audience"],
-            "narrative": "",
-        })
+        result = self.graph.invoke(
+            {
+                "concept": row["concept"],
+                "target_audience": row["target_audience"],
+                "narrative": "",
+            }
+        )
         return result["narrative"]
 
 

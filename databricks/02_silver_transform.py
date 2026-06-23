@@ -5,6 +5,7 @@ Deduplication, type casting and basic validation happen here. Records that
 fail validation are written to a dedicated *_rejected table rather than
 dropped silently, so nothing disappears without a trace.
 """
+
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, row_number, to_date, to_timestamp
 from pyspark.sql.window import Window
@@ -14,13 +15,12 @@ CATALOG = "atelier"
 BRONZE_SCHEMA = "bronze"
 SILVER_SCHEMA = "silver"
 
+
 def write_table(df, table_name, mode="overwrite"):
     """Escribe un DataFrame en una tabla Delta, creándola si no existe."""
     full_name = f"{CATALOG}.{SILVER_SCHEMA}.{table_name}"
-    df.write.format("delta") \
-      .mode(mode) \
-      .option("mergeSchema", "true") \
-      .saveAsTable(full_name)
+    df.write.format("delta").mode(mode).option("mergeSchema", "true").saveAsTable(full_name)
+
 
 def build_silver():
     # Obtener la sesión Spark activa (en Databricks ya existe, pero lo hacemos explícito)
@@ -41,7 +41,7 @@ def build_silver():
             col("season"),
             col("colour"),
             col("silhouette"),
-            to_timestamp(col("captured_at")).alias("captured_at")
+            to_timestamp(col("captured_at")).alias("captured_at"),
         )
         .filter(col("season").isNotNull() & col("colour").isNotNull())
     )
@@ -57,7 +57,7 @@ def build_silver():
             col("sku"),
             col("warehouse"),
             col("quantity_on_hand").cast("int"),
-            to_date(col("as_of_date")).alias("as_of_date")
+            to_date(col("as_of_date")).alias("as_of_date"),
         )
         .filter(col("quantity_on_hand").isNotNull())
     )
@@ -71,11 +71,12 @@ def build_silver():
             col("sku"),
             col("market"),
             col("units_sold").cast("int"),
-            to_date(col("sale_date")).alias("sale_date")
+            to_date(col("sale_date")).alias("sale_date"),
         )
         .filter(col("units_sold").isNotNull())
     )
     write_table(sales_df, "sales_history")
+
 
 if __name__ == "__main__":
     build_silver()

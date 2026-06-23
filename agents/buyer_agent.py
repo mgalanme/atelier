@@ -46,12 +46,14 @@ class BuyerAgentModel(mlflow.pyfunc.PythonModel):
 
     def predict(self, context, model_input):
         row = model_input.iloc[0]
-        result = self.graph.invoke({
-            "concept": row["concept"],
-            "forecast_summary": row["forecast_summary"],
-            "inventory_summary": row["inventory_summary"],
-            "commentary": "",
-        })
+        result = self.graph.invoke(
+            {
+                "concept": row["concept"],
+                "forecast_summary": row["forecast_summary"],
+                "inventory_summary": row["inventory_summary"],
+                "commentary": "",
+            }
+        )
         return result["commentary"]
 
 

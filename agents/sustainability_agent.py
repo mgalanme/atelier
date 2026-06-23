@@ -47,12 +47,14 @@ class SustainabilityAgentModel(mlflow.pyfunc.PythonModel):
 
     def predict(self, context, model_input):
         row = model_input.iloc[0]
-        result = self.graph.invoke({
-            "concept": row["concept"],
-            "materials": row["materials"],
-            "target_markets": row["target_markets"],
-            "assessment": "",
-        })
+        result = self.graph.invoke(
+            {
+                "concept": row["concept"],
+                "materials": row["materials"],
+                "target_markets": row["target_markets"],
+                "assessment": "",
+            }
+        )
         return result["assessment"]
 
 

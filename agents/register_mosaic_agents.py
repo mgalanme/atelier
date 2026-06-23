@@ -43,12 +43,14 @@ def register_and_deploy(endpoint_name: str, module) -> str:
     client.serving_endpoints.create_and_wait(
         name=endpoint_name,
         config={
-            "served_entities": [{
-                "entity_name": f"atelier.gold.{endpoint_name}",
-                "entity_version": registered.version,
-                "workload_size": "Small",
-                "scale_to_zero_enabled": True,
-            }]
+            "served_entities": [
+                {
+                    "entity_name": f"atelier.gold.{endpoint_name}",
+                    "entity_version": registered.version,
+                    "workload_size": "Small",
+                    "scale_to_zero_enabled": True,
+                }
+            ]
         },
     )
     return endpoint_name
