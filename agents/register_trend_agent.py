@@ -10,6 +10,8 @@ credenciales automáticamente al desplegar (no hace falta pasar un token).
 """
 
 import os
+import subprocess
+import sys
 
 import mlflow
 import pandas as pd
@@ -24,9 +26,12 @@ ENDPOINT_NAME = "atelier-trend-agent"
 LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3-70b-instruct")
 
 mlflow.set_tracking_uri("databricks")
-mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents")
+mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 
-AGENT_FILE = os.path.join(os.path.dirname(__file__), "trend_agent.py")
+AGENT_FILE = os.path.join(os.getcwd(), "trend_agent.py")
+
+# Install packages required by trend_agent.py before MLflow imports it
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
 
 
 def register_and_deploy():
