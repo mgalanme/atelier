@@ -3,17 +3,21 @@ Trend synthesis agent: given a creative brief, retrieves relevant historical
 and current trend signals via Mosaic AI Vector Search and proposes concept
 directions and material recommendations.
 
-Packaged with MLflow Models-as-Code: this module exposes a single `model`
-object implementing `predict`, which is what Mosaic AI Agent Framework
-expects when serving the agent as a Databricks Model Serving endpoint.
+Empaquetado con el patrón MLflow Models-as-Code: este fichero se registra
+por ruta, no como objeto Python serializado, y llama a
+mlflow.models.set_model(model) al final para que MLflow sepa qué objeto
+cargar cuando este mismo fichero se vuelva a ejecutar dentro del
+contenedor de serving.
 """
 
 import os
+from typing import TypedDict
 
 import mlflow
-from langchain_community.chat_models import ChatDatabricks
+from databricks_langchain import ChatDatabricks
 from langgraph.graph import END, StateGraph
-from typing_extensions import TypedDict
+
+LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3-70b-instruct")
 
 
 class TrendState(TypedDict):
@@ -23,14 +27,15 @@ class TrendState(TypedDict):
 
 
 def retrieve_signals(state: TrendState) -> TrendState:
-    # Replace with a real call to the atelier-vector-search index created
-    # in databricks/05_vector_search_setup.py.
+    # TODO: sustituir por una llamada real al índice atelier-vector-search
+    # (databricks/05_vector_search_setup.py). Se deja vacío a propósito;
+    # no bloquea esta primera puesta en marcha.
     state["retrieved_signals"] = []
     return state
 
 
 def synthesise_proposal(state: TrendState) -> TrendState:
-    llm = ChatDatabricks(endpoint=os.environ["MOSAIC_LLM_ENDPOINT"])
+    llm = ChatDatabricks(endpoint=LLM_ENDPOINT)
     context = "\n".join(state["retrieved_signals"]) or "No prior signals retrieved."
     prompt = (
         f"Brief: {state['brief']}\n"
@@ -59,7 +64,8 @@ class TrendAgentModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
         brief = model_input["brief"][0]
         result = self.graph.invoke({"brief": brief, "retrieved_signals": [], "proposal": ""})
-        return result["proposal"]
+        return [result["proposal"]]
 
 
 model = TrendAgentModel()
+mlflow.models.set_model(model)
