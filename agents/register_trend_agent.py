@@ -31,7 +31,10 @@ mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 AGENT_FILE = os.path.join(os.getcwd(), "trend_agent.py")
 
 # Install packages required by trend_agent.py before MLflow imports it
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
+
+subprocess.check_call(
+    [sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"]
+)
 
 
 def register_and_deploy():
