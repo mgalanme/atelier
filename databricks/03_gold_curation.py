@@ -7,6 +7,10 @@ snapshot, not an accumulating history), so trends here uses a plain
 INSERT OVERWRITE rather than a MERGE. decisions remains a pure INSERT: it
 is an audit log of real Human-in-the-Loop events, not a refreshable
 snapshot, and must persist across runs.
+
+climate_profile and social_sentiment follow the same snapshot semantics as
+trends: a full INSERT OVERWRITE on every run, since their Silver sources
+are themselves full snapshots, not accumulating history.
 """
 
 from pyspark.sql import SparkSession
@@ -47,6 +51,20 @@ def build_gold():
         )
     """)
 
+    spark.sql(f"""
+        CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.climate_profile (
+            region STRING, season STRING, avg_temp_c DOUBLE, avg_rainfall_mm DOUBLE,
+            climate_band STRING, refreshed_at TIMESTAMP
+        )
+    """)
+
+    spark.sql(f"""
+        CREATE TABLE IF NOT EXISTS {CATALOG}.{GOLD_SCHEMA}.social_sentiment (
+            platform STRING, hashtag STRING, language STRING,
+            post_count INT, avg_sentiment DOUBLE, refreshed_at TIMESTAMP
+        )
+    """)
+
     # --- Recalcular trends como snapshot completo (no MERGE) ---
     spark.sql(f"""
         INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.trends
@@ -70,6 +88,36 @@ def build_gold():
             season,
             current_timestamp() AS refreshed_at
         FROM {CATALOG}.{GOLD_SCHEMA}.trends
+    """)
+
+    # --- Climate profile: una fila por región/estación de calendario, con
+    # una banda de clima derivada para que sea legible sin tener que
+    # interpretar la temperatura cruda. ---
+    spark.sql(f"""
+        INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.climate_profile
+        SELECT
+            region, season, avg_temp_c, avg_rainfall_mm,
+            CASE
+                WHEN avg_temp_c < 10 THEN 'Cold'
+                WHEN avg_temp_c < 18 THEN 'Mild'
+                WHEN avg_temp_c < 26 THEN 'Warm'
+                ELSE 'Hot'
+            END AS climate_band,
+            current_timestamp() AS refreshed_at
+        FROM {CATALOG}.{SILVER_SCHEMA}.climate
+    """)
+
+    # --- Social sentiment: agregado por plataforma, hashtag e idioma,
+    # mismo patrón que trends (de eventos individuales a resumen). ---
+    spark.sql(f"""
+        INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.social_sentiment
+        SELECT
+            platform, hashtag, language,
+            count(*) AS post_count,
+            avg(sentiment_score) AS avg_sentiment,
+            current_timestamp() AS refreshed_at
+        FROM {CATALOG}.{SILVER_SCHEMA}.social_listening
+        GROUP BY platform, hashtag, language
     """)
 
 

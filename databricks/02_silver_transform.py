@@ -7,7 +7,7 @@ dropped silently, so nothing disappears without a trace.
 """
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, row_number, to_date, to_timestamp
+from pyspark.sql.functions import col, get_json_object, row_number, to_date, to_timestamp
 from pyspark.sql.window import Window
 
 # Configuración fija (puedes parametrizar si lo deseas)
@@ -76,6 +76,38 @@ def build_silver():
         .filter(col("units_sold").isNotNull())
     )
     write_table(sales_df, "sales_history")
+
+    # --- 4. Climate: sin deduplicación, solo 16 combinaciones región/estación.
+    # Usa estaciones de calendario (Spring, Summer, Fall, Winter), un eje
+    # distinto al de las estaciones de moda en trend_signals (Spring/Summer,
+    # Fall/Winter, Pre-Fall, Resort). Deliberadamente no se cruzan aquí.
+    climate_df = (
+        spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.climate_raw")
+        .select(
+            col("region"),
+            col("season"),
+            col("avg_temp_c").cast("double"),
+            col("avg_rainfall_mm").cast("double"),
+            to_timestamp(col("captured_at")).alias("captured_at"),
+        )
+        .filter(col("region").isNotNull() & col("season").isNotNull())
+    )
+    write_table(climate_df, "climate")
+
+    # --- 5. Social listening: extraer language y primer hashtag del payload JSON ---
+    social_df = (
+        spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.social_listening_raw")
+        .select(
+            col("post_id"),
+            col("platform"),
+            to_timestamp(col("captured_at")).alias("captured_at"),
+            col("sentiment_score").cast("double"),
+            get_json_object(col("payload"), "$.language").alias("language"),
+            get_json_object(col("payload"), "$.hashtags[0]").alias("hashtag"),
+        )
+        .filter(col("sentiment_score").isNotNull())
+    )
+    write_table(social_df, "social_listening")
 
 
 if __name__ == "__main__":
