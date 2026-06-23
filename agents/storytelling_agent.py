@@ -14,7 +14,7 @@ from typing_extensions import TypedDict
 LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3-70b-instruct")
 
 
-class StorytellingState(TypedDict, total=True):
+class StorytellingState(TypedDict):
     concept: str
     target_audience: str
     narrative: str
