@@ -29,6 +29,6 @@ builtins = ["spark", "dbutils", "display"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+"databricks/05_vector_search_setup.py" = ["E402"]
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["agents*", "databricks*", "solace_mesh*", "streamlit_app*"]
