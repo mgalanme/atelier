@@ -1,3 +1,12 @@
+# Databricks notebook source
+# MAGIC %pip install databricks-vectorsearch python-dotenv
+
+# COMMAND ----------
+
+dbutils.library.restartPython()
+
+# COMMAND ----------
+
 """
 Creates the Mosaic AI Vector Search endpoint and index used by the trend
 synthesis and sustainability agents for semantic retrieval over historical
