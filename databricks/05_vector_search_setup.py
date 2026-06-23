@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CATALOG = os.environ["ATELIER_CATALOG"]
-GOLD_SCHEMA = os.environ["ATELIER_SCHEMA_GOLD"]
+CATALOG = os.environ.get("ATELIER_CATALOG", "atelier")
+GOLD_SCHEMA = os.environ.get("ATELIER_SCHEMA_GOLD", "gold")
 ENDPOINT_NAME = "atelier-vector-search"
 SOURCE_TABLE = f"{CATALOG}.{GOLD_SCHEMA}.trend_documents"
 INDEX_NAME = f"{CATALOG}.{GOLD_SCHEMA}.trend_documents_index"
@@ -24,10 +24,15 @@ INDEX_NAME = f"{CATALOG}.{GOLD_SCHEMA}.trend_documents_index"
 def main():
     client = VectorSearchClient()
 
+    # Crear endpoint si no existe
     existing_endpoints = [e["name"] for e in client.list_endpoints().get("endpoints", [])]
     if ENDPOINT_NAME not in existing_endpoints:
         client.create_endpoint(name=ENDPOINT_NAME, endpoint_type="STANDARD")
+        print(f"Endpoint {ENDPOINT_NAME} creado.")
+    else:
+        print(f"Endpoint {ENDPOINT_NAME} ya existe.")
 
+    # Crear índice sincronizado con la tabla Gold
     client.create_delta_sync_index(
         endpoint_name=ENDPOINT_NAME,
         index_name=INDEX_NAME,
@@ -37,6 +42,7 @@ def main():
         embedding_source_column="document_text",
         embedding_model_endpoint_name="databricks-gte-large-en",
     )
+    print(f"Índice {INDEX_NAME} creado/actualizado.")
 
 
 if __name__ == "__main__":
