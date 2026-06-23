@@ -11,7 +11,7 @@ contenedor de serving.
 """
 
 import os
-from typing import List, TypedDict
+from typing import TypedDict
 
 import mlflow
 from databricks_langchain import ChatDatabricks
@@ -22,7 +22,7 @@ LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3
 
 class TrendState(TypedDict):
     brief: str
-    retrieved_signals: List[str]
+    retrieved_signals: list[str]
     proposal: str
 
 

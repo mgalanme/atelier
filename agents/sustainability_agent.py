@@ -8,9 +8,12 @@ pass or fail.
 import os
 
 import mlflow
-from langchain_community.chat_models import ChatDatabricks
+from databricks_langchain import ChatDatabricks
 from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
+
+# Use environment variable with fallback
+LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3-70b-instruct")
 
 
 class SustainabilityState(TypedDict):
@@ -21,7 +24,7 @@ class SustainabilityState(TypedDict):
 
 
 def assess(state: SustainabilityState) -> SustainabilityState:
-    llm = ChatDatabricks(endpoint=os.environ["MOSAIC_LLM_ENDPOINT"])
+    llm = ChatDatabricks(endpoint=LLM_ENDPOINT)
     prompt = (
         f"Concept: {state['concept']}\n"
         f"Materials: {', '.join(state['materials'])}\n"
@@ -58,4 +61,6 @@ class SustainabilityAgentModel(mlflow.pyfunc.PythonModel):
         return result["assessment"]
 
 
+# Expose the model for MLflow Models-as-Code
 model = SustainabilityAgentModel()
+mlflow.models.set_model(model)
