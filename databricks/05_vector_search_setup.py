@@ -32,17 +32,24 @@ def main():
     else:
         print(f"Endpoint {ENDPOINT_NAME} ya existe.")
 
-    # Crear índice sincronizado con la tabla Gold
-    client.create_delta_sync_index(
-        endpoint_name=ENDPOINT_NAME,
-        index_name=INDEX_NAME,
-        source_table_name=SOURCE_TABLE,
-        pipeline_type="TRIGGERED",
-        primary_key="document_id",
-        embedding_source_column="document_text",
-        embedding_model_endpoint_name="databricks-gte-large-en",
-    )
-    print(f"Índice {INDEX_NAME} creado/actualizado.")
+    # Crear el índice solo si no existe; si ya existe, sincronizarlo en
+    # lugar de intentar crearlo de nuevo. create_delta_sync_index no es
+    # idempotente: falla si el índice ya existe.
+    if client.index_exists(index_name=INDEX_NAME):
+        index = client.get_index(endpoint_name=ENDPOINT_NAME, index_name=INDEX_NAME)
+        index.sync()
+        print(f"Índice {INDEX_NAME} ya existía; sincronización lanzada.")
+    else:
+        client.create_delta_sync_index(
+            endpoint_name=ENDPOINT_NAME,
+            index_name=INDEX_NAME,
+            source_table_name=SOURCE_TABLE,
+            pipeline_type="TRIGGERED",
+            primary_key="document_id",
+            embedding_source_column="document_text",
+            embedding_model_endpoint_name="databricks-gte-large-en",
+        )
+        print(f"Índice {INDEX_NAME} creado por primera vez.")
 
 
 if __name__ == "__main__":
