@@ -22,7 +22,7 @@ def write_batch(df, table_name, run_id, spark_session):
     full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table_name}"
     df_with_meta = df.withColumn("ingestion_run_id", lit(run_id)) \
                      .withColumn("ingested_at", current_timestamp())
-    df_with_meta.write.format("delta").mode("append").option("mergeSchema", "true").saveAsTable(full_name)
+    df_with_meta.write.format("delta").mode("overwrite").option("mergeSchema", "true").saveAsTable(full_name)
 
 # --- 1. Generar datos sintéticos de tendencias ---
 def generate_trend_signals(spark_session, n=100):
