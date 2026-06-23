@@ -6,6 +6,7 @@ pass or fail.
 """
 
 import os
+from typing import List
 
 import mlflow
 from databricks_langchain import ChatDatabricks
@@ -18,8 +19,8 @@ LLM_ENDPOINT = os.environ.get("ATELIER_LLM_ENDPOINT", "databricks-meta-llama-3-3
 
 class SustainabilityState(TypedDict):
     concept: str
-    materials: list[str]
-    target_markets: list[str]
+    materials: List[str]
+    target_markets: List[str]
     assessment: str
 
 
