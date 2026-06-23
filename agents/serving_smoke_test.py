@@ -32,13 +32,12 @@ def register_and_deploy():
     with mlflow.start_run(run_name=f"smoke-test-{py_uuid.uuid4()}"):
         # Create sample input for signature inference (required for Unity Catalog)
         import pandas as pd
+
         sample_input = pd.DataFrame({"text": ["hello"]})
         signature = mlflow.models.infer_signature(sample_input, sample_input)
-        
+
         model_info = mlflow.pyfunc.log_model(
-            python_model=EchoModel(), 
-            artifact_path="model",
-            signature=signature
+            python_model=EchoModel(), artifact_path="model", signature=signature
         )
         registered = mlflow.register_model(model_info.model_uri, MODEL_NAME)
 
