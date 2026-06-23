@@ -7,6 +7,7 @@ fails once a prior session has contaminated the DataFrame schema with extra
 or reordered columns. Every MERGE below uses an explicit column list on both
 the INSERT and UPDATE clauses, never INSERT * or UPDATE SET *.
 """
+
 from pyspark.sql import SparkSession
 
 # Configuración fija (puedes parametrizar si lo deseas)
@@ -18,9 +19,11 @@ GOLD_SCHEMA = "gold"
 # that touches this table uses exactly the same columns in the same order.
 TREND_COLS = ["trend_id", "season", "colour", "silhouette", "signal_count", "last_seen_at"]
 
+
 def get_spark():
     """Obtiene la sesión Spark activa (en Databricks ya existe)."""
     return SparkSession.builder.getOrCreate()
+
 
 def build_gold():
     spark = get_spark()
@@ -49,31 +52,22 @@ def build_gold():
         )
     """)
 
-    # --- 2. Poblar/actualizar trends usando MERGE ---
-    insert_cols = ", ".join(TREND_COLS)
-    update_assignments = ", ".join(
-        f"target.{c} = source.{c}"
-        for c in TREND_COLS
-        if c != "trend_id"
-    )
-    source_cols = ", ".join(f"source.{c}" for c in TREND_COLS)
-
-    merge_sql = f"""
-        MERGE INTO {CATALOG}.{GOLD_SCHEMA}.trends AS target
-        USING (
-            SELECT
-                concat(season, '-', colour, '-', coalesce(silhouette, 'na')) AS trend_id,
-                season, colour, silhouette,
-                count(*) AS signal_count,
-                max(captured_at) AS last_seen_at
-            FROM {CATALOG}.{SILVER_SCHEMA}.trend_signals
-            GROUP BY season, colour, silhouette
-        ) AS source
-        ON target.trend_id = source.trend_id
-        WHEN MATCHED THEN UPDATE SET {update_assignments}
-        WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({source_cols})
-    """
-    spark.sql(merge_sql)
+    # --- 2. Recalcular trends como snapshot completo ---
+    # Bronze y Silver ahora se sobrescriben en cada ejecución (overwrite,
+    # no append), así que Gold sigue la misma semántica de snapshot: un
+    # INSERT OVERWRITE, no un MERGE acumulativo. decisions es la excepción
+    # deliberada (ver record_decision más abajo): es un registro de
+    # auditoría de eventos HITL reales, no un dato sintético recalculable.
+    spark.sql(f"""
+        INSERT OVERWRITE TABLE {CATALOG}.{GOLD_SCHEMA}.trends
+        SELECT
+            concat(season, '-', colour, '-', coalesce(silhouette, 'na')) AS trend_id,
+            season, colour, silhouette,
+            count(*) AS signal_count,
+            max(captured_at) AS last_seen_at
+        FROM {CATALOG}.{SILVER_SCHEMA}.trend_signals
+        GROUP BY season, colour, silhouette
+    """)
 
     # --- 3. Generar documentos de texto para Vector Search ---
     spark.sql(f"""
@@ -88,8 +82,10 @@ def build_gold():
         FROM {CATALOG}.{GOLD_SCHEMA}.trends
     """)
 
-def record_decision(decision_id: str, collection_id: str, persona: str,
-                    decision_type: str, comment: str):
+
+def record_decision(
+    decision_id: str, collection_id: str, persona: str, decision_type: str, comment: str
+):
     """
     Sanitises free-text fields before they reach a SQL statement, since
     `comment` may originate from an LLM-generated narrative rather than a
@@ -99,10 +95,7 @@ def record_decision(decision_id: str, collection_id: str, persona: str,
     """
     spark = get_spark()
     safe_comment = (
-        comment.replace("\x00", "")
-        .replace("\r", " ")
-        .replace("\n", " ")
-        .replace("'", "''")
+        comment.replace("\x00", "").replace("\r", " ").replace("\n", " ").replace("'", "''")
     )[:2000]
 
     spark.sql(f"""
@@ -111,6 +104,7 @@ def record_decision(decision_id: str, collection_id: str, persona: str,
         VALUES ('{decision_id}', '{collection_id}', '{persona}', '{decision_type}',
                 '{safe_comment}', current_timestamp())
     """)
+
 
 if __name__ == "__main__":
     build_gold()
