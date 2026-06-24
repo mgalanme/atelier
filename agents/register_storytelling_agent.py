@@ -82,6 +82,7 @@ def register_and_deploy():
                     )
                 ]
             ),
+        timeout=600
         )
         print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
 
