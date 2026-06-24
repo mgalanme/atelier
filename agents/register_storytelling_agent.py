@@ -23,10 +23,10 @@ mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 
 AGENT_FILE = os.path.join(os.getcwd(), "storytelling_agent.py")
 
-# Install required packages
-subprocess.check_call(
-    [sys.executable, "-m", "pip", "install", "-q", "typing_extensions>=4.6.0", "databricks-langchain", "langgraph"]
-)
+# Install typing_extensions first with upgrade to ensure version >=4.6.0
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"])
+# Install other required packages
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
 
 
 def register_and_deploy():
