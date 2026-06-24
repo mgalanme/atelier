@@ -7,6 +7,7 @@ Consume solo 1 endpoint de la cuota de Free Edition, no 4.
 from datetime import timedelta
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors import NotFound
 from databricks.sdk.service.serving import (
     EndpointCoreConfigInput,
     ServedEntityInput,
@@ -85,7 +86,7 @@ def deploy_consolidated_endpoint():
             traffic_config=traffic_config,
         )
         print(f"Endpoint '{ENDPOINT_NAME}' updated successfully.")
-    except Exception:
+    except NotFound:
         print(f"Creating new endpoint '{ENDPOINT_NAME}'...")
         client.serving_endpoints.create_and_wait(
             name=ENDPOINT_NAME,
