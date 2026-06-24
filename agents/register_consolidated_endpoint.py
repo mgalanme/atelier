@@ -23,11 +23,10 @@ def get_latest_version(model_name):
     client = WorkspaceClient()
     full_name = f"{CATALOG}.{SCHEMA}.{model_name}"
     try:
-        # Usar search_model_versions (compatible con Unity Catalog y Workspace Registry)
-        versions = client.model_registry.search_model_versions(filter_string=f"name='{full_name}'")
+        # Método que funciona en la versión del SDK que tienes
+        versions = client.model_versions.list_by_model(model_name=full_name)
         version_list = list(versions)
         if version_list:
-            # Ordenar por versión (descendente) y tomar la primera
             sorted_versions = sorted(version_list, key=lambda v: int(v.version), reverse=True)
             return sorted_versions[0].version
     except Exception as e:
@@ -58,11 +57,9 @@ def deploy_consolidated_endpoint():
         print("❌ No models found to deploy. Aborting.")
         return
 
-    # Mostrar los modelos que se van a desplegar
     for se in served_entities:
         print(f"✅ Deploying: {se.entity_name} version {se.entity_version}")
 
-    # Verificar si el endpoint ya existe
     try:
         _ = client.serving_endpoints.get(ENDPOINT_NAME)
         print(f"Updating existing endpoint '{ENDPOINT_NAME}'...")
