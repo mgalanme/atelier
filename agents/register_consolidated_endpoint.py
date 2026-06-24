@@ -21,13 +21,16 @@ MODEL_NAMES = [
 def get_latest_version(model_name):
     """Obtiene la versión más reciente del modelo registrado."""
     client = WorkspaceClient()
-    versions = client.model_versions.list(
-        catalog_name=CATALOG, schema_name=SCHEMA, model_name=model_name
-    )
-    # Ordenar por versión (descendente) y tomar la primera
-    sorted_versions = sorted(versions, key=lambda v: int(v.version), reverse=True)
-    if sorted_versions:
-        return sorted_versions[0].version
+    full_name = f"{CATALOG}.{SCHEMA}.{model_name}"
+    try:
+        # For Unity Catalog models, search by full name
+        versions = client.model_registry.search_model_versions(filter_string=f"name='{full_name}'")
+        version_list = list(versions)
+        if version_list:
+            sorted_versions = sorted(version_list, key=lambda v: int(v.version), reverse=True)
+            return sorted_versions[0].version
+    except Exception:
+        return None
     return None
 
 
