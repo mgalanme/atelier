@@ -31,10 +31,9 @@ mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 AGENT_FILE = os.path.join(os.getcwd(), "trend_agent.py")
 
 # Install packages required by trend_agent.py before MLflow imports it
-
-subprocess.check_call(
-    [sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"]
-)
+# Install typing_extensions first with upgrade to ensure version >=4.6.0
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"])
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
 
 
 def register_and_deploy():
@@ -56,7 +55,7 @@ def register_and_deploy():
             name="agent",
             input_example=input_example,
             resources=[DatabricksServingEndpoint(endpoint_name=LLM_ENDPOINT)],
-            pip_requirements=["langgraph", "databricks-langchain"],
+            pip_requirements=["typing_extensions>=4.6.0", "langgraph", "databricks-langchain"],
         )
         registered = mlflow.register_model(model_info.model_uri, MODEL_NAME)
 

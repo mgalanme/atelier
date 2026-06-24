@@ -7,7 +7,7 @@ Consume solo 1 endpoint de la cuota de Free Edition, no 4.
 from datetime import timedelta
 
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.errors import NotFound
+from databricks.sdk.errors import NotFound, OperationFailed
 from databricks.sdk.service.serving import (
     EndpointCoreConfigInput,
     ServedEntityInput,
@@ -86,17 +86,38 @@ def deploy_consolidated_endpoint():
             traffic_config=traffic_config,
         )
         print(f"Endpoint '{ENDPOINT_NAME}' updated successfully.")
+    except OperationFailed as e:
+        # Retrieve detailed error from endpoint state
+        print(f"\n❌ Endpoint update failed: {e}\n")
+        endpoint = client.serving_endpoints.get(ENDPOINT_NAME)
+        if endpoint.state and endpoint.state.config_update:
+            print(f"Config update state: {endpoint.state.config_update}")
+        
+        print("\n⚠️  DIAGNOSIS: This is likely a Free Edition workspace limitation.")
+        print("Free Edition does not support multiple served entities in a single endpoint.")
+        print("\n📋 Your options:")
+        print("  1. Deploy only ONE model per endpoint (defeats the consolidation purpose)")
+        print("  2. Upgrade to a paid workspace tier that supports multi-entity endpoints")
+        print("  3. Accept the endpoint quota limit and deploy fewer models")
+        print("\nThe configuration you attempted requires platform features not available in Free Edition.")
+        return  # Don't re-raise, just exit
     except NotFound:
         print(f"Creating new endpoint '{ENDPOINT_NAME}'...")
-        client.serving_endpoints.create_and_wait(
-            name=ENDPOINT_NAME,
-            config=EndpointCoreConfigInput(
-                served_entities=served_entities,
-                traffic_config=traffic_config,
-            ),
-            timeout=timedelta(seconds=600),
-        )
-        print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
+        try:
+            client.serving_endpoints.create_and_wait(
+                name=ENDPOINT_NAME,
+                config=EndpointCoreConfigInput(
+                    served_entities=served_entities,
+                    traffic_config=traffic_config,
+                ),
+                timeout=timedelta(seconds=600),
+            )
+            print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
+        except OperationFailed as e:
+            print(f"\n❌ Endpoint creation failed: {e}")
+            print("\n⚠️  This likely indicates a Free Edition limitation.")
+            print("Multiple served entities may not be supported in your workspace tier.")
+            return
 
 
 if __name__ == "__main__":
