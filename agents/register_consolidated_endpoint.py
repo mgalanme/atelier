@@ -4,8 +4,15 @@ Registra un único endpoint consolidado con todos los agentes
 Consume solo 1 endpoint de la cuota de Free Edition, no 4.
 """
 
+from datetime import timedelta
+
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.serving import EndpointCoreConfigInput, ServedEntityInput
+from databricks.sdk.service.serving import (
+    EndpointCoreConfigInput,
+    ServedEntityInput,
+    TrafficConfig,
+    Route,
+)
 
 ENDPOINT_NAME = "atelier-agents"
 CATALOG = "atelier"
@@ -59,20 +66,34 @@ def deploy_consolidated_endpoint():
     for se in served_entities:
         print(f"✅ Deploying: {se.name} -> {se.entity_name} version {se.entity_version}")
 
+    # Create traffic config with equal distribution
+    n = len(served_entities)
+    base_pct = 100 // n
+    remainder = 100 % n
+    routes = []
+    for i, se in enumerate(served_entities):
+        pct = base_pct + (1 if i < remainder else 0)
+        routes.append(Route(served_model_name=se.name, traffic_percentage=pct))
+    traffic_config = TrafficConfig(routes=routes)
+
     try:
         client.serving_endpoints.get(ENDPOINT_NAME)
         print(f"Updating existing endpoint '{ENDPOINT_NAME}'...")
         client.serving_endpoints.update_config_and_wait(
             name=ENDPOINT_NAME,
             served_entities=served_entities,
+            traffic_config=traffic_config,
         )
         print(f"Endpoint '{ENDPOINT_NAME}' updated successfully.")
     except Exception:
         print(f"Creating new endpoint '{ENDPOINT_NAME}'...")
         client.serving_endpoints.create_and_wait(
             name=ENDPOINT_NAME,
-            config=EndpointCoreConfigInput(served_entities=served_entities),
-            timeout=600,
+            config=EndpointCoreConfigInput(
+                served_entities=served_entities,
+                traffic_config=traffic_config,
+            ),
+            timeout=timedelta(seconds=600),
         )
         print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
 
