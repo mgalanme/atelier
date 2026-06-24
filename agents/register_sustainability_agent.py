@@ -6,11 +6,6 @@ import os
 import subprocess
 import sys
 
-# Install typing_extensions FIRST, before importing any packages that depend on it
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"])
-# Install other required packages
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
-
 import mlflow
 import pandas as pd
 from databricks.sdk import WorkspaceClient
@@ -27,6 +22,15 @@ mlflow.set_tracking_uri("databricks")
 mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 
 AGENT_FILE = os.path.join(os.getcwd(), "sustainability_agent.py")
+
+# typing_extensions primero, con upgrade, para que el resto de paquetes
+# que dependen de su versión se instalen sobre una base ya correcta.
+subprocess.check_call(
+    [sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"]
+)
+subprocess.check_call(
+    [sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"]
+)
 
 
 def register_and_deploy():

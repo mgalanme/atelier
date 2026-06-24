@@ -1,12 +1,6 @@
 """
-Registra y despliega el agente de tendencias como primer agente real (no
-desechable) de Mosaic AI Model Serving. Cuando esto funcione de extremo a
-extremo, se replica el mismo patrón para los otros tres en
-register_mosaic_agents.py.
-
-Usa el patrón Models-as-Code (python_model como ruta de fichero) y declara
-el endpoint del LLM como recurso, para que Databricks aprovisione
-credenciales automáticamente al desplegar (no hace falta pasar un token).
+Registra y despliega el agente de tendencias real, con Models-as-Code y
+autenticación automática hacia el endpoint del LLM declarado como recurso.
 """
 
 import os
@@ -30,16 +24,19 @@ mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 
 AGENT_FILE = os.path.join(os.getcwd(), "trend_agent.py")
 
-# Install packages required by trend_agent.py before MLflow imports it
-# Install typing_extensions first with upgrade to ensure version >=4.6.0
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"])
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
+# typing_extensions primero, con upgrade, antes de las dependencias que
+# trend_agent.py necesita cuando MLflow lo ejecute para inferir la firma.
+subprocess.check_call(
+    [sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"]
+)
+subprocess.check_call(
+    [sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"]
+)
 
 
 def register_and_deploy():
     # Logear el modelo con este input_example ejecuta el agente una vez de
-    # verdad (llama al LLM de verdad) para inferir la firma. Es intencional:
-    # valida el flujo completo antes incluso de desplegar.
+    # verdad (llama al LLM de verdad) para inferir la firma.
     input_example = pd.DataFrame(
         {
             "brief": [
