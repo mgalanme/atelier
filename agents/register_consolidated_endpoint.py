@@ -21,11 +21,10 @@ MODEL_NAMES = [
 def get_latest_version(model_name):
     """Obtiene la versión más reciente del modelo registrado en Unity Catalog."""
     client = WorkspaceClient()
+    full_name = f"{CATALOG}.{SCHEMA}.{model_name}"
     try:
-        # API correcta para Unity Catalog (sin la 's' intermedia)
-        versions = client.model_versions.list(
-            catalog_name=CATALOG, schema_name=SCHEMA, model_name=model_name
-        )
+        # Usar search_model_versions (compatible con Unity Catalog y Workspace Registry)
+        versions = client.model_registry.search_model_versions(filter_string=f"name='{full_name}'")
         version_list = list(versions)
         if version_list:
             # Ordenar por versión (descendente) y tomar la primera
