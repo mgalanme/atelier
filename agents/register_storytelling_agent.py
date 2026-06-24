@@ -23,10 +23,19 @@ mlflow.set_experiment("/Users/mgalanme@gmail.com/atelier/agents_experiment")
 
 AGENT_FILE = os.path.join(os.getcwd(), "storytelling_agent.py")
 
-# Install typing_extensions first with upgrade to ensure version >=4.6.0
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--upgrade", "typing_extensions>=4.6.0"])
-# Install other required packages
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "databricks-langchain", "langgraph"])
+# Install required packages
+subprocess.check_call(
+    [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "-q",
+        "databricks-langchain",
+        "langgraph",
+        "typing_extensions>=4.6.0",
+    ]
+)
 
 
 def register_and_deploy():
@@ -46,15 +55,15 @@ def register_and_deploy():
             name="agent",
             input_example=input_example,
             resources=[DatabricksServingEndpoint(endpoint_name=LLM_ENDPOINT)],
-            pip_requirements=["typing_extensions>=4.6.0", "langgraph", "databricks-langchain"],
+            pip_requirements=["langgraph", "databricks-langchain", "typing_extensions>=4.6.0"],
         )
         registered = mlflow.register_model(model_info.model_uri, MODEL_NAME)
 
     client = WorkspaceClient()
-    
+
     # Check if endpoint already exists
     try:
-        existing = client.serving_endpoints.get(ENDPOINT_NAME)
+        _ = client.serving_endpoints.get(ENDPOINT_NAME)
         print(f"Endpoint '{ENDPOINT_NAME}' already exists. Updating with new model version...")
         client.serving_endpoints.update_config_and_wait(
             name=ENDPOINT_NAME,
@@ -82,7 +91,7 @@ def register_and_deploy():
                     )
                 ]
             ),
-        timeout=600
+            timeout=600,  # ⬅️ SOLO UNA VEZ, correctamente indentado
         )
         print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
 
