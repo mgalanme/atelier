@@ -25,6 +25,7 @@ AGENT_FILE = os.path.join(os.getcwd(), "storytelling_agent.py")
 
 # Install required packages
 subprocess.check_call(
+<<<<<<< Updated upstream
     [
         sys.executable,
         "-m",
@@ -35,6 +36,9 @@ subprocess.check_call(
         "langgraph",
         "typing_extensions>=4.6.0",
     ]
+=======
+    [sys.executable, "-m", "pip", "install", "-q", "typing_extensions>=4.6.0", "databricks-langchain", "langgraph"]
+>>>>>>> Stashed changes
 )
 
 
@@ -55,14 +59,22 @@ def register_and_deploy():
             name="agent",
             input_example=input_example,
             resources=[DatabricksServingEndpoint(endpoint_name=LLM_ENDPOINT)],
+<<<<<<< Updated upstream
             pip_requirements=["langgraph", "databricks-langchain", "typing_extensions>=4.6.0"],
+=======
+            pip_requirements=["typing_extensions>=4.6.0", "langgraph", "databricks-langchain"],
+>>>>>>> Stashed changes
         )
         registered = mlflow.register_model(model_info.model_uri, MODEL_NAME)
 
     client = WorkspaceClient()
-    client.serving_endpoints.create_and_wait(
-        name=ENDPOINT_NAME,
-        config=EndpointCoreConfigInput(
+    
+    # Check if endpoint already exists
+    try:
+        existing = client.serving_endpoints.get(ENDPOINT_NAME)
+        print(f"Endpoint '{ENDPOINT_NAME}' already exists. Updating with new model version...")
+        client.serving_endpoints.update_config_and_wait(
+            name=ENDPOINT_NAME,
             served_entities=[
                 ServedEntityInput(
                     entity_name=MODEL_NAME,
@@ -70,11 +82,33 @@ def register_and_deploy():
                     workload_size="Small",
                     scale_to_zero_enabled=True,
                 )
+<<<<<<< Updated upstream
             ]
         ),
         timeout=600,  # ⬅️ 10 minutos (en segundos)
     )
     print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
+=======
+            ],
+        )
+        print(f"Endpoint '{ENDPOINT_NAME}' updated successfully.")
+    except Exception:
+        # Endpoint doesn't exist, create it
+        client.serving_endpoints.create_and_wait(
+            name=ENDPOINT_NAME,
+            config=EndpointCoreConfigInput(
+                served_entities=[
+                    ServedEntityInput(
+                        entity_name=MODEL_NAME,
+                        entity_version=registered.version,
+                        workload_size="Small",
+                        scale_to_zero_enabled=True,
+                    )
+                ]
+            ),
+        )
+        print(f"Endpoint '{ENDPOINT_NAME}' created successfully.")
+>>>>>>> Stashed changes
 
 
 if __name__ == "__main__":
