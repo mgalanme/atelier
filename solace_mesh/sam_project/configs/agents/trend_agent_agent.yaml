@@ -38,12 +38,12 @@ apps:
           component_base_path: src
 
       session_service: 
-        type: "sql"
+        type: "memory"
         default_behavior: "PERSISTENT"
         database_url: "${TREND_AGENT_DATABASE_URL, sqlite:///trend_agent.db}"
       artifact_service: *default_artifact_service
       
-      artifact_handling_mode: "reference"
+      artifact_handling_mode: "ignore"
       enable_embed_resolution: true
       enable_artifact_content_instruction: true
       data_tools_config: *default_data_tools_config

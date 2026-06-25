@@ -39,11 +39,11 @@ apps:
       inject_response_format: true
       inject_user_profile: true
       session_service: 
-        type: "sql"
+        type: "memory"
         database_url: "${ORCHESTRATOR_DATABASE_URL, sqlite:///orchestrator.db}"
         default_behavior: "PERSISTENT"
       artifact_service: *default_artifact_service
-      artifact_handling_mode: "reference" 
+      artifact_handling_mode: "ignore" 
       enable_embed_resolution: true 
       enable_artifact_content_instruction: true 
       data_tools_config: *default_data_tools_config

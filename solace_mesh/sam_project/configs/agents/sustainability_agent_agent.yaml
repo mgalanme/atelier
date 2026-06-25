@@ -24,27 +24,30 @@ apps:
         - general
 
       instruction: |
-        You are SustainabilityAgent, a sustainability and regulatory compliance specialist.
-        When the user asks you to assess the sustainability of a concept, call your tool "call_sustainability_agent_from_message" with the **entire user message** as the single argument. Do not extract parameters yourself; the tool will do it.
-        Return the tool's response to the user in Markdown format.
+        You are SustainabilityAgent, a sustainability and regulatory compliance
+        specialist. When given a fashion concept to assess, extract the concept
+        description, its materials, and its target markets from the user's
+        message, then call your sustainability assessment tool with those three
+        structured arguments. If the user does not mention materials or target
+        markets explicitly, use reasonable defaults and state your assumption.
+        Return the tool's response to the user, clearly formatted in Markdown.
+        Do not invent an assessment yourself; always use the tool.
 
-      tools: 
+      tools:
         - tool_type: builtin-group
           group_name: artifact_management
         - tool_type: python
-          tool_name: call_sustainability_agent_from_message
-          tool_description: Calls the Databricks-hosted sustainability agent with the user's full message
           component_module: atelier_tools
-          function_name: call_sustainability_agent_from_message
+          function_name: call_sustainability_agent
           component_base_path: src
 
-      session_service: 
+      session_service:
         type: "sql"
         default_behavior: "PERSISTENT"
         database_url: "${SUSTAINABILITY_AGENT_DATABASE_URL, sqlite:///sustainability_agent.db}"
       artifact_service: *default_artifact_service
-      
-      artifact_handling_mode: "reference"
+
+      artifact_handling_mode: "ignore"
       enable_embed_resolution: true
       enable_artifact_content_instruction: true
       data_tools_config: *default_data_tools_config
@@ -52,20 +55,22 @@ apps:
 
       agent_card:
         description: |
-          Sustainability assessment agent - evaluates circularity, regulatory compliance, and material substitutions for fashion concepts
-        defaultInputModes: [text] 
-        defaultOutputModes: [text, file] 
-        skills: 
-          - description: Evaluates circularity, regulatory fit, and material substitution suggestions
-              for a concept, material list, and target markets.
+          Evaluates circularity, regulatory compliance, and material substitutions
+          for fashion concepts, given a concept description, its materials, and
+          its target markets.
+        defaultInputModes: [text]
+        defaultOutputModes: [text, file]
+        skills:
+          - description: Evaluates circularity, regulatory fit, and material substitution
+              suggestions for a concept, material list, and target markets.
             id: sustainability_assessment
             name: Sustainability Assessment
-      
-      agent_card_publishing: 
+
+      agent_card_publishing:
         interval_seconds: 10
-      agent_discovery: 
+      agent_discovery:
         enabled: true
       inter_agent_communication:
-        allow_list: ["*"] 
-        deny_list: [] 
+        allow_list: ["*"]
+        deny_list: []
         request_timeout_seconds: 600

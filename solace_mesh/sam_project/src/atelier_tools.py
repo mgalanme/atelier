@@ -40,58 +40,24 @@ def call_trend_agent(brief: str) -> str:
         return predictions[0]
     return str(predictions)
 
+
 def call_sustainability_agent(concept: str, materials: list, target_markets: list) -> str:
-    """Calls the Databricks-hosted sustainability assessment agent."""
-    import os
-    import requests
-    
-    endpoint_base = os.environ["LLM_SERVICE_ENDPOINT"]
-    token = os.environ["LLM_SERVICE_API_KEY"]
-    url = f"{endpoint_base}/atelier-sustainability-agent/invocations"
-    
-    response = requests.post(
-        url,
-        headers={"Authorization": f"Bearer {token}"},
-        json={"dataframe_records": [{"concept": concept, "materials": materials, "target_markets": target_markets}]},
-        timeout=60,
-    )
-    response.raise_for_status()
-    predictions = response.json().get("predictions")
-    if isinstance(predictions, list):
-        return predictions[0]
-    return str(predictions)
-
-def call_sustainability_agent_from_message(message: str) -> str:
     """
-    Extrae concepto, materiales y mercados del mensaje del usuario y llama al endpoint de sostenibilidad.
+    Calls the Databricks-hosted sustainability assessment agent with a
+    concept, its materials, and its target markets.
+
+    Args:
+        concept: A short description of the garment or collection concept
+            (e.g. "a winter jacket").
+        materials: The list of materials the concept is made from
+            (e.g. ["recycled polyester", "organic cotton", "down"]).
+        target_markets: The markets the concept is intended for
+            (e.g. ["EU", "US", "UK"]).
+
+    Returns:
+        The sustainability agent's textual response, with a circularity and
+        regulatory compliance assessment plus material substitution ideas.
     """
-    import re
-    import os
-    import requests
-
-    # Extraer concepto (lo que viene después de "concept" o "Assess this concept")
-    concept_match = re.search(r"(?:concept|Assess this concept)[: ]+(.*?)(?:made from|\.|$)", message, re.IGNORECASE)
-    concept = concept_match.group(1).strip() if concept_match else "sustainable winter jacket"
-
-    # Extraer materiales (lista separada por comas o "and")
-    materials_match = re.search(r"made from (.*?)(?: for |\.|$)", message, re.IGNORECASE)
-    if materials_match:
-        materials_text = materials_match.group(1)
-        # Dividir por comas o "and"
-        materials = [m.strip() for m in re.split(r",\s*|\s+and\s+", materials_text) if m.strip()]
-    else:
-        materials = ["recycled polyester", "organic cotton", "down"]
-
-    # Extraer mercados (lo que viene después de "for" o "target markets")
-    markets_match = re.search(r"for (.*?)(?:\.|$)", message, re.IGNORECASE)
-    if markets_match:
-        markets_text = markets_match.group(1)
-        # Dividir por comas o "and"
-        target_markets = [m.strip() for m in re.split(r",\s*|\s+and\s+", markets_text) if m.strip()]
-    else:
-        target_markets = ["EU", "US", "UK"]
-
-    # Llamar al endpoint real
     endpoint_base = os.environ["LLM_SERVICE_ENDPOINT"]
     token = os.environ["LLM_SERVICE_API_KEY"]
     url = f"{endpoint_base}/atelier-sustainability-agent/invocations"
@@ -99,10 +65,19 @@ def call_sustainability_agent_from_message(message: str) -> str:
     response = requests.post(
         url,
         headers={"Authorization": f"Bearer {token}"},
-        json={"dataframe_records": [{"concept": concept, "materials": materials, "target_markets": target_markets}]},
+        json={
+            "dataframe_records": [
+                {
+                    "concept": concept,
+                    "materials": materials,
+                    "target_markets": target_markets,
+                }
+            ]
+        },
         timeout=60,
     )
     response.raise_for_status()
+
     predictions = response.json().get("predictions")
     if isinstance(predictions, list):
         return predictions[0]
