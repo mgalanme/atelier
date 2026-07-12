@@ -16,3 +16,4 @@ __pycache__/
 *.db-shm
 *.db-wal
 *.lock
+streamlit_app/.env
