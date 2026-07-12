@@ -74,15 +74,6 @@ apps:
           agents, handle it yourself using your general reasoning
           capabilities, and explain what you are doing.
 
-        Artifact Management:
-        - Review your artifacts after each agent response and return
-          those relevant to the user using artifact_return embed.
-        - Use list_artifacts to check what is available before
-          concluding your response.
-        - Provide regular progress updates using status_update embed
-          directives, especially before initiating any tool call or
-          agent delegation.
-
       inject_system_purpose: true
       inject_response_format: true
       inject_user_profile: true
@@ -95,8 +86,6 @@ apps:
       enable_artifact_content_instruction: true 
       data_tools_config: *default_data_tools_config
       tools: 
-        - group_name: artifact_management
-          tool_type: builtin-group
         - tool_type: builtin-group
           group_name: "data_analysis"
 
