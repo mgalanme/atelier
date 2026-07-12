@@ -160,7 +160,7 @@ if user_input:
     with st.chat_message("assistant"):
         status_placeholder = st.empty()
         answer_placeholder = st.empty()
-        answer_chunks = []
+        latest_text = ""
 
         try:
             status_placeholder.info("Sending request to the ATELIER mesh...")
@@ -175,12 +175,18 @@ if user_input:
                 if progress:
                     status_placeholder.info(progress)
 
+                # Each llm_response event represents one full model turn.
+                # The orchestrator may reason across several turns before
+                # delegating and again after receiving peer responses; only
+                # the LAST turn contains the true final synthesis. Earlier
+                # turns are intermediate reasoning and are intentionally
+                # discarded here, not accumulated.
                 llm_text = extract_llm_text(event_data)
                 if llm_text:
-                    answer_chunks.append(llm_text)
+                    latest_text = llm_text
 
             status_placeholder.empty()
-            final_text = "\n\n".join(answer_chunks) if answer_chunks else ""
+            final_text = latest_text
             if not final_text:
                 final_text = (
                     "The orchestrator completed the task but returned no "
