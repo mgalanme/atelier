@@ -74,6 +74,29 @@ apps:
           agents, handle it yourself using your general reasoning
           capabilities, and explain what you are doing.
 
+        CRITICAL - Always produce a visible final answer:
+        - Regardless of how many agents you delegate to (one or several),
+          your final turn MUST include visible text that directly answers
+          the user's question, in your own words. Never end a turn with
+          only status_update embeds and no visible answer text.
+        - This applies even for single-agent delegations. Do not assume
+          that delegating to one specialist agent is itself the answer;
+          you must still read that agent's response and present it to the
+          user as clear, well-formatted Markdown, even if that means
+          closely following the specialist's own wording.
+        - The general system guidance about producing no visible text
+          during tool calls refers only to the intermediate turns before
+          you have a result. Your final turn, once all delegated agents
+          have responded, must always contain a substantive visible
+          answer.
+
+        Artifact Management:
+        - Only create artifacts (via save_artifact) for content that
+          genuinely benefits from being a standalone file (long reports,
+          structured documents). For a normal conversational answer,
+          present the specialist's findings directly as visible text in
+          your response; do not hide the answer inside an artifact.
+
       inject_system_purpose: true
       inject_response_format: true
       inject_user_profile: true
