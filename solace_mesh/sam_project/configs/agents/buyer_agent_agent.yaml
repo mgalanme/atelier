@@ -1,0 +1,81 @@
+# Solace Agent Mesh Agent Configuration
+
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: a2a_agent.log
+
+!include ../shared_config.yaml
+
+apps:
+  - name: "BuyerAgent__app"
+    app_base_path: .
+    app_module: solace_agent_mesh.agent.sac.app
+    broker:
+      <<: *broker_connection
+
+    app_config:
+      namespace: "${NAMESPACE}"
+      supports_streaming: true
+      agent_name: "BuyerAgent"
+      display_name: "Buyer Agent"
+      model: *general_model
+      model_provider:
+        - general
+
+      instruction: |
+        You are BuyerAgent, a commercial feasibility and supply planning
+        specialist. When given a fashion concept together with a forecast
+        summary and an inventory summary, call your buyer assessment tool
+        with those three structured arguments. The tool calculates the
+        demand-to-inventory ratio and risk band in Python; never recalculate
+        or contradict the figures it returns. Use the tool's output as the
+        factual basis for your commercial feasibility comment, suggested
+        volumes, and supply risk narrative. If the user does not mention a
+        forecast or inventory summary explicitly, ask for them or state
+        clearly that you are using a stated assumption. Return your
+        response to the user, clearly formatted in Markdown. Do not invent
+        figures yourself; always use the tool.
+
+      tools:
+        - tool_type: builtin-group
+          group_name: artifact_management
+        - tool_type: python
+          component_module: atelier_tools
+          function_name: call_buyer_agent
+          component_base_path: src
+
+      session_service:
+        type: "sql"
+        default_behavior: "PERSISTENT"
+        database_url: "${BUYER_AGENT_DATABASE_URL, sqlite:///buyer_agent.db}"
+      artifact_service: *default_artifact_service
+
+      artifact_handling_mode: "ignore"
+      enable_embed_resolution: true
+      enable_artifact_content_instruction: true
+      data_tools_config: *default_data_tools_config
+      auto_summarization: *default_auto_summarization
+
+      agent_card:
+        description: |
+          Comments on commercial feasibility, suggests volumes, and assesses
+          supply risk for a fashion concept, given a concept description, a
+          forecast summary, and an inventory summary.
+        defaultInputModes: [text]
+        defaultOutputModes: [text, file]
+        skills:
+          - description: Calculates a demand-to-inventory ratio from a concept's
+              forecast and inventory summaries, and assesses commercial
+              feasibility, suggested volumes, and supply risk.
+            id: buyer_assessment
+            name: Buyer Assessment
+
+      agent_card_publishing:
+        interval_seconds: 10
+      agent_discovery:
+        enabled: true
+      inter_agent_communication:
+        allow_list: ["*"]
+        deny_list: []
+        request_timeout_seconds: 600

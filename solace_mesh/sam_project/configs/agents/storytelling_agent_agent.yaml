@@ -1,0 +1,77 @@
+# Solace Agent Mesh Agent Configuration
+
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: a2a_agent.log
+
+!include ../shared_config.yaml
+
+apps:
+  - name: "StorytellingAgent__app"
+    app_base_path: .
+    app_module: solace_agent_mesh.agent.sac.app
+    broker:
+      <<: *broker_connection
+
+    app_config:
+      namespace: "${NAMESPACE}"
+      supports_streaming: true
+      agent_name: "StorytellingAgent"
+      display_name: "Storytelling Agent"
+      model: *general_model
+      model_provider:
+        - general
+
+      instruction: |
+        You are StorytellingAgent, a fashion narrative and positioning
+        specialist. When given a fashion concept and its target audience,
+        call your storytelling tool with those two structured arguments to
+        validate them, then draft narrative and positioning content aligned
+        with the concept and audience. Decide tone and style yourself; do
+        not rely on any hardcoded rules. If the user does not mention a
+        target audience explicitly, ask for one or clearly state that you
+        are using a general audience as a working assumption. Return your
+        response to the user, clearly formatted in Markdown. Always use the
+        tool first, even though it performs no calculation itself.
+
+      tools:
+        - tool_type: builtin-group
+          group_name: artifact_management
+        - tool_type: python
+          component_module: atelier_tools
+          function_name: call_storytelling_agent
+          component_base_path: src
+
+      session_service:
+        type: "sql"
+        default_behavior: "PERSISTENT"
+        database_url: "${STORYTELLING_AGENT_DATABASE_URL, sqlite:///storytelling_agent.db}"
+      artifact_service: *default_artifact_service
+
+      artifact_handling_mode: "ignore"
+      enable_embed_resolution: true
+      enable_artifact_content_instruction: true
+      data_tools_config: *default_data_tools_config
+      auto_summarization: *default_auto_summarization
+
+      agent_card:
+        description: |
+          Drafts collection narrative and positioning content aligned with a
+          fashion concept and its target audience.
+        defaultInputModes: [text]
+        defaultOutputModes: [text, file]
+        skills:
+          - description: Drafts narrative and positioning content for a fashion
+              concept, tailored to a stated target audience.
+            id: storytelling
+            name: Storytelling
+
+      agent_card_publishing:
+        interval_seconds: 10
+      agent_discovery:
+        enabled: true
+      inter_agent_communication:
+        allow_list: ["*"]
+        deny_list: []
+        request_timeout_seconds: 600
