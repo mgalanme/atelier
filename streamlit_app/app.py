@@ -27,6 +27,10 @@ load_dotenv()
 SAM_GATEWAY_URL = os.environ.get("SAM_GATEWAY_URL", "http://localhost:8000")
 AGENT_NAME = "OrchestratorAgent"
 EMBED_PATTERN = re.compile(r"\u00ab[^\u00bb]*\u00bb")
+# Cleans up any stray embed delimiters left over when a save_artifact or
+# artifact_return block's matching pair wasn't fully resolved by the
+# gateway (e.g. a lone »»» or ««« left in the visible text).
+STRAY_DELIMITER_PATTERN = re.compile(r"[\u00ab\u00bb]+")
 
 st.set_page_config(page_title="ATELIER", layout="centered")
 st.title("ATELIER")
@@ -36,6 +40,8 @@ if "context_id" not in st.session_state:
     st.session_state.context_id = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "seen_artifacts" not in st.session_state:
+    st.session_state.seen_artifacts = set()
 
 
 def submit_message(text: str, context_id: str | None) -> str:
@@ -114,6 +120,39 @@ def extract_context_id(event_data: dict) -> str | None:
     return event_data.get("result", {}).get("contextId")
 
 
+def list_artifacts(session_id: str) -> list[dict]:
+    """
+    Lists artifacts produced during the given session (e.g. by
+    save_artifact blocks in the orchestrator's response). Returns an empty
+    list if the session has no artifacts or the call fails; a missing
+    file list should never break the chat flow.
+    """
+    try:
+        response = requests.get(
+            f"{SAM_GATEWAY_URL}/api/v1/artifacts/{session_id}", timeout=30
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException:
+        return []
+
+
+def fetch_artifact_content(session_id: str, filename: str) -> tuple[bytes, str]:
+    """
+    Fetches the latest version of a specific artifact. Returns a tuple of
+    (raw_bytes, content_type). The gateway serves the artifact's real
+    content type, which may be text (markdown, plain text) or binary
+    (images, PDFs), so the caller must branch on content_type rather than
+    assuming JSON.
+    """
+    response = requests.get(
+        f"{SAM_GATEWAY_URL}/api/v1/artifacts/{session_id}/{filename}", timeout=30
+    )
+    response.raise_for_status()
+    content_type = response.headers.get("content-type", "application/octet-stream")
+    return response.content, content_type
+
+
 def stream_task_events(task_id: str, timeout: float = 180.0):
     """
     Opens a real SSE connection to the gateway's task event stream and
@@ -190,10 +229,51 @@ if user_input:
             if not final_text:
                 final_text = (
                     "The orchestrator completed the task but returned no "
-                    "visible text. It may have produced an artifact instead, "
-                    "which this simple client does not yet display."
+                    "visible text. It may have produced an artifact instead; "
+                    "check below."
                 )
+            # Remove any stray embed delimiters left over from a
+            # partially-resolved save_artifact/artifact_return block.
+            final_text = STRAY_DELIMITER_PATTERN.sub("", final_text).strip()
             answer_placeholder.markdown(final_text)
+
+            # Check for artifacts produced during this turn and render them.
+            # Only show artifacts not already displayed in a previous turn
+            # of this same conversation.
+            if st.session_state.context_id:
+                artifacts = list_artifacts(st.session_state.context_id)
+                for artifact in artifacts:
+                    filename = artifact.get("filename")
+                    if not filename or filename in st.session_state.seen_artifacts:
+                        continue
+                    st.session_state.seen_artifacts.add(filename)
+                    try:
+                        content_bytes, content_type = fetch_artifact_content(
+                            st.session_state.context_id, filename
+                        )
+                    except requests.exceptions.RequestException:
+                        continue
+
+                    st.divider()
+                    if content_type.startswith("text/") or "json" in content_type:
+                        try:
+                            text_content = content_bytes.decode("utf-8")
+                        except UnicodeDecodeError:
+                            text_content = None
+                        if text_content is not None:
+                            st.markdown(f"**{filename}**")
+                            if "markdown" in content_type or filename.endswith(".md"):
+                                st.markdown(text_content)
+                            else:
+                                st.text(text_content)
+                            continue
+                    # Binary or undecodable content: offer a download button
+                    st.download_button(
+                        label=f"Download {filename}",
+                        data=content_bytes,
+                        file_name=filename,
+                        mime=content_type,
+                    )
 
         except requests.exceptions.RequestException as exc:
             status_placeholder.empty()
@@ -215,4 +295,5 @@ with st.sidebar:
     if st.button("New conversation"):
         st.session_state.context_id = None
         st.session_state.messages = []
+        st.session_state.seen_artifacts = set()
         st.rerun()
