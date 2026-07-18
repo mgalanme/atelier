@@ -1,36 +1,77 @@
-# ATELIER — Demo Pilot Scaffold
+# ATELIER — Conversational AI platform for the fashion industry
 
-Conversational, agent-orchestrated decision-support platform for the fashion
-industry. This package contains the open source, free-tier pilot stack
-referenced in the ATELIER Setup Guide (Word document). It does **not**
-duplicate the explanatory content of that document: each script and folder
-carries only the comments needed to understand the code itself. WHAT, WHY and
-HOW for every step live in the Setup Guide.
+Agent-orchestrated decision-support platform for fashion collection planning,
+built on Solace Agent Mesh (SAM). Part of Martín Galán's agentic AI bootcamp
+portfolio.
+
+**Live demo:** Streamlit Cloud app (see repository settings for the current
+public URL) — backend runs on Railway, connected to a Solace Cloud broker
+and Google AI Studio Gemini.
+
+## Architecture
+
+```
+Streamlit Cloud (frontend)
+  └── Railway (Docker container: SAM mesh)
+        ├── OrchestratorAgent
+        ├── TrendAgent
+        ├── SustainabilityAgent
+        ├── BuyerAgent
+        └── StorytellingAgent
+              └── Solace Cloud (broker, A2A orchestration)
+                    └── Google AI Studio Gemini (LLM)
+```
+
+The OrchestratorAgent infers which specialist agent(s) to delegate to from
+the user's request, without the user needing to name them explicitly. For
+requests spanning multiple domains, it coordinates several agents in
+sequence and synthesises their responses into a single coherent answer.
 
 ## Contents
 
 | Folder | Purpose |
 |---|---|
-| `databricks/` | Bronze, Silver, Gold notebooks, DLT pipeline, Vector Search index, predictive models |
-| `agents/` | LangGraph agent logic, Models-as-Code packaging, Mosaic AI registration, HITL orchestrator |
-| `solace_mesh/` | Solace Agent Mesh (SAM) configuration: broker, agent YAML files, init script |
-| `streamlit_app/` | Conversational front end |
+| `solace_mesh/` | Solace Agent Mesh (SAM) configuration: agent YAML files, shared config, gateway |
+| `streamlit_app/` | Streamlit frontend, a thin SSE client over the SAM WebUI gateway |
+| `Dockerfile` | Builds the SAM mesh container for Railway deployment |
+| `databricks/` | Bronze/Silver/Gold notebooks from an earlier project phase (Mosaic AI, since discarded — see `CLAUDE.md`) |
+| `agents/` | LangGraph HITL orchestrator from an earlier project phase (superseded by the SAM mesh) |
 | `scripts/` | Environment validation and lint helpers |
 
-## First run
+Folders `databricks/` and `agents/` reflect an earlier architecture
+(Databricks Mosaic AI Model Serving + LangGraph) that was fully replaced by
+the current SAM mesh. They remain in the repo as a record of the project's
+evolution, not as active components.
 
-1. Extract this package to `/home/pruebas/Descargas/atelier-demo-setup` (or
-   wherever your downloads land).
-2. Run `./deploy.sh` from inside that folder. It creates
-   `/home/pruebas/formacion/atelier` and copies everything there.
-3. From the target folder, follow the Setup Guide step by step. Do not skip
-   ahead: each step assumes only the steps before it.
+## Running locally
+
+Local execution is for development only. **Do not run `sam run` locally
+while the Railway deployment is live**: both would compete for the same
+durable queues on the shared Solace Cloud broker, and the free tier limits
+clients per queue.
+
+```bash
+cd solace_mesh/sam_project
+source ../../.venv-atelier/bin/activate
+sam run
+```
+
+Web UI: `http://localhost:8000`.
+
+## Deployment
+
+- **Backend**: Railway, built from the root `Dockerfile`. Environment
+  variables (Solace broker credentials, Gemini API key/endpoint, session
+  secret) are set in Railway's Variables tab, not committed to the repo.
+- **Frontend**: Streamlit Cloud, `streamlit_app/app.py`. `SAM_GATEWAY_URL`
+  is set as a Streamlit Cloud secret, pointing to the Railway public URL.
+
+See `CLAUDE.md` for detailed configuration gotchas, provider migration
+history, and troubleshooting notes.
 
 ## Reused from previous case studies
 
-This scaffold reuses the existing Databricks Free Edition workspace, the
-existing `mgalanme` GitHub account and PAT authentication already configured
-for `gh`, and the operational lessons recorded across the bootcamp (explicit
-column lists on Delta MERGE, UUID4 MLflow run IDs, `databricks-sql-connector`
-instead of Databricks Connect, `uv` for environments, `ruff` before every
-commit). See each folder's own README for specifics.
+This project reuses the existing `mgalanme` GitHub account and PAT
+authentication already configured for `gh`, and the operational lessons
+recorded across the bootcamp (explicit column lists on Delta MERGE, UUID4
+MLflow run IDs, `uv` for environments, `ruff` before every commit).
