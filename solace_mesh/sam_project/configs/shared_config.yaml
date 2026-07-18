@@ -20,9 +20,9 @@ shared_config:
       # Enable parallel tool calls for planning model
       # parallel_tool_calls: true  # Databricks rejects this as an unknown field
       # Prompt Caching Strategy
-      cache_strategy: "5m" # none, 5m, 1h
+      cache_strategy: "none" # none, 5m, 1h
 
-      # max_tokens: ${MAX_TOKENS, 16000} # Set a reasonable max token limit for planning
+      max_tokens: ${MAX_TOKENS, 4000}
       # temperature: 0.1 # Lower temperature for more deterministic planning
       additional_drop_params: ["stream_options", "parallel_tool_calls"]
 
@@ -35,7 +35,8 @@ shared_config:
       # 'api_key' provides authentication.
       api_key: ${LLM_SERVICE_API_KEY} # Use env var for API key
       # Prompt Caching Strategy
-      cache_strategy: "5m" # none, 5m, 1h
+      cache_strategy: "none" # none, 5m, 1h
+      max_tokens: ${MAX_TOKENS, 4000}
       additional_drop_params: ["stream_options", "parallel_tool_calls"]
 
     image_gen: &image_generation_model
